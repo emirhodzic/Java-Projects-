@@ -5,9 +5,9 @@ import java.util.*;
 public class Store {
 
     private static Random random = new Random();
-
     private Map<String, InventoryItem> inventory;
     private NavigableSet<Cart> carts = new TreeSet<>(Comparator.comparing(Cart::getId));
+    private Map<Category, Map<String, InventoryItem>> aisleInventory;
 
     public static void main(String[] args) {
 
@@ -15,25 +15,81 @@ public class Store {
         myStore.stockStore();
         myStore.listInventory();
 
+        myStore.stockAisles();
+        myStore.listProductsByCategory();
+
+        myStore.manageStoreCarts();
+        myStore.listProductsByCategory(false, true);
 
     }
 
-    private void manageStoreCarts(){
+    private void manageStoreCarts() {
+
+        Cart cart1 = new Cart(Cart.CartType.PHYSICAL, 1);
+        carts.add(cart1);
+
+        InventoryItem item = aisleInventory.get(Category.PRODUCE).get("apple");
+        cart1.addItem(item, 6);
+        cart1.addItem(aisleInventory.get(Category.PRODUCE).get("pear"), 5);
+        cart1.addItem(aisleInventory.get(Category.BEVERAGE).get("coffee"), 1);
+        System.out.println(cart1);
+
+        cart1.removeItem(aisleInventory.get(Category.PRODUCE).get("pear"), 2);
+        System.out.println(cart1);
+
+        Cart cart2 = new Cart(Cart.CartType.VIRTUAL, 1);
+        carts.add(cart2);
+        cart2.addItem(inventory.get("L103"), 20);
+        cart2.addItem(inventory.get("B100"), 10);
+        System.out.println(cart2);
+
+        Cart cart3 = new Cart(Cart.CartType.VIRTUAL, 0);
+        carts.add(cart3);
+        cart3.addItem(inventory.get("R777"), 998);
+        System.out.println(cart3);
+        if (!checkOutCart(cart3)){
+            System.out.println("Something went wrong, could not check out !!!!");
+        }
+
 
     }
 
-    private void checkOutCart(Cart cart) {
+    private boolean checkOutCart(Cart cart) {
+
+        for(var cartItem : cart.getProducts().entrySet()){
+
+            var item = inventory.get(cartItem.getKey());
+            int qty = cartItem.getValue();
+            if (!item.sellItem(qty)) return false;
+        }
+        cart.printSalesSlip(inventory);
+        carts.remove(cart);
+        return true;
+    }
+
+    private void abandonCarts() {
 
     }
 
-    private void abandonCarts(){
+    private void listProductsByCategory() {
 
+        listProductsByCategory(true, false);
     }
 
-    private void listProductsByCategory(){
+    private void listProductsByCategory(boolean includeHeader, boolean includeDetail) {
 
+        aisleInventory.keySet().forEach(k -> {
+            if (includeHeader) System.out.println("--------\n" + k + "\n--------");
+            if (!includeDetail) {
+                aisleInventory.get(k).keySet().forEach(System.out::println);
+            } else {
+                aisleInventory.get(k).values().forEach(System.out::println);
+            }
+        });
     }
-    private void stockStore(){
+
+    private void stockStore() {
+
         inventory = new HashMap<>();
         List<Product> products = new ArrayList<>(List.of(
                 new Product("A100","apple","local",Category.PRODUCE),
@@ -52,15 +108,31 @@ public class Store {
                 new Product("BC88","coffee","value",Category.BEVERAGE),
                 new Product("BC99","tea","herbal",Category.BEVERAGE)
         ));
+
         products.forEach(p -> inventory.put(p.sku(), new InventoryItem(p,
                 random.nextDouble(0, 1.25), 1000, 5)));
-    }
-    private void stockAisles(){
 
     }
 
-    private void listInventory(){
-        System.out.println("--------------------------------");
+    private void stockAisles() {
+
+        aisleInventory = new EnumMap<>(Category.class);
+        for (InventoryItem item : inventory.values()) {
+            Category aisle = item.getProduct().category();
+
+            Map<String, InventoryItem> productMap = aisleInventory.get(aisle);
+            if (productMap == null) {
+                productMap = new TreeMap<>();
+            }
+            productMap.put(item.getProduct().name(), item);
+            aisleInventory.putIfAbsent(aisle, productMap);
+        }
+
+    }
+
+    private void listInventory() {
+
+        System.out.println("--------------------------------------");
         inventory.values().forEach(System.out::println);
     }
 }
